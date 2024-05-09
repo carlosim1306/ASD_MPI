@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <omp.h>
 #include <mpi.h>
 
 int main(int argc, char* argv[]) {
@@ -7,11 +8,8 @@ int main(int argc, char* argv[]) {
     unsigned short xi[3] = { 1, 2, 3 };
     long long i;
     long long num_steps = 10000000;
-    double start_time, end_time, start_time1, end_time1;
     double step, pi;
     double sum = 0.0;
-
-#define MAX_THREADS 8
 
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -25,31 +23,27 @@ int main(int argc, char* argv[]) {
     for (int row = 0; row < 10; row++) {
         step = 1.0 / (double)num_steps;
         sum = 0;
-        omp_set_num_threads(MAX_THREADS);
-        
-        start_time = omp_get_wtime();
+
+        double start_time = MPI_Wtime();
 
 #pragma omp parallel for shared(step) reduction(+:sum)
-            for (i = 0; i < num_steps; i++) {
-                double x = (i + 0.5) * step;
-                sum += 4.0 / (1.0 + x * x);
-            }
+        for (i = rank; i < num_steps; i += size) {
+            double x = (i + 0.5) * step;
+            sum += 4.0 / (1.0 + x * x);
+        }
 
         double local_pi = step * sum;
-
-        end_time = omp_get_wtime();      
-        start_time1 = MPI_Wtime();
-
         MPI_Reduce(&local_pi, &pi, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
 
-        end_time1 = MPI_Wtime();
+        double end_time = MPI_Wtime();
 
         if (rank == 0) {
             double difference = 3.1415926 - pi;
-            double execution_time = (end_time - start_time)+(end_time1 - start_time1);
+            double execution_time = end_time - start_time;
             printf("%lld,%.7f,%.7f,%.7f\n", num_steps, pi, difference, execution_time);
         }
 
+        // Incrementa el número de steps para la próxima iteración
         num_steps *= 2;
     }
 
