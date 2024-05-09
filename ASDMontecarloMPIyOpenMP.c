@@ -5,9 +5,8 @@
 
 int main(int argc, char* argv[]) {
     int rank, size;
-    double count = 0;
-    long long i;
-    long long samples;
+    long long count = 0;
+    long long local_samples, total_samples;
     double x, y;
     double start_time, end_time;
     double pi;
@@ -17,7 +16,7 @@ int main(int argc, char* argv[]) {
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-    samples = 10000000;
+    total_samples = 10000000;
 
 #define MAX_THREADS 4
 
@@ -32,29 +31,27 @@ int main(int argc, char* argv[]) {
 
         start_time = MPI_Wtime();
 
-        unsigned int seeds[MAX_THREADS];
-        for (int j = 0; j < MAX_THREADS; j++) {
-            seeds[j] = (unsigned int)(j + 1);
+        local_samples = total_samples / size;
+        if (rank == 0) {
+            // Asegurarse de que el proceso raíz tome las muestras restantes si no se dividen exactamente
+            local_samples += total_samples % size;
         }
-        
-#pragma omp parallel 
-        {
-            unsigned int seed = seeds[omp_get_thread_num()];
-            srand(seed);
 
-#pragma omp for  reduction (+:count) 
-            for (i = 0; i < samples; ++i) {
-                double x, y, z;
-                x = ((double)rand()) / ((double)RAND_MAX);
-                y = ((double)rand()) / ((double)RAND_MAX);
-                z = x * x + y * y;
-                if (z <= 1.0) {
-                    ++count;
-                }
+        unsigned int seed = (unsigned int)(rank + 1);
+        srand(seed);
+
+#pragma omp parallel for reduction(+:count)
+        for (long long i = 0; i < local_samples; ++i) {
+            double x, y, z;
+            x = ((double)rand()) / ((double)RAND_MAX);
+            y = ((double)rand()) / ((double)RAND_MAX);
+            z = x * x + y * y;
+            if (z <= 1.0) {
+                ++count;
             }
         }
 
-        double local_pi = 4.0 * count / samples;
+        double local_pi = 4.0 * count / local_samples;
         MPI_Reduce(&local_pi, &pi, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
 
         end_time = MPI_Wtime(); 
@@ -63,10 +60,10 @@ int main(int argc, char* argv[]) {
             double difference = 3.1415926 - pi;
             double execution_time = end_time - start_time;
 
-            printf("%lld,%.7f,%.7f,%.7f\n", samples, pi, difference, execution_time);
+            printf("%lld,%.7f,%.7f,%.7f\n", total_samples, pi, difference, execution_time);
         }
 
-        samples *= 2;
+        total_samples *= 2;
     }
 
     MPI_Finalize();
