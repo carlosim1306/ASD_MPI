@@ -23,6 +23,7 @@ int main(int argc, char* argv[]) {
 
     if (rank == 0) {
         printf("Prueba para %1d procesos\n", size);
+        printf("Prueba para %1d hilos\n", MAX_THREADS);
         printf("Samples, Estimación pi, Diferencia pi, Tiempo de ejecución\n");
     }
 
