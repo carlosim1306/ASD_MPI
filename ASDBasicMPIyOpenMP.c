@@ -15,8 +15,11 @@ int main(int argc, char* argv[]) {
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
+#define MAX_THREADS 4
+
     if (rank == 0) {
         printf("Número de procesos: %d\n", size);
+        printf("Número de hilos: %d\n", MAX_THREADS);
         printf("num_steps, Estimación pi, Diferencia pi, Tiempo de ejecución\n");
     }
 
@@ -25,6 +28,8 @@ int main(int argc, char* argv[]) {
         sum = 0;
 
         double start_time = MPI_Wtime();
+
+        omp_set_num_threads(MAX_THREADS); //p=número de hilos
 
 #pragma omp parallel for shared(step) reduction(+:sum)
         for (i = rank; i < num_steps; i += size) {
