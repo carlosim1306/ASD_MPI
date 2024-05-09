@@ -36,9 +36,7 @@ int main(int argc, char* argv[]) {
         for (int j = 0; j < MAX_THREADS; j++) {
             seeds[j] = (unsigned int)(j + 1);
         }
-
-        start_time = omp_get_wtime();
-
+        
 #pragma omp parallel 
         {
             unsigned int seed = seeds[omp_get_thread_num()];
